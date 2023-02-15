@@ -256,17 +256,17 @@ async fn init_tesseract(overwrite_old_account: bool) -> Result<Tesseract, Error>
     // to fix this, manually delete the file and re-create it.
     if overwrite_old_account {
         // delete old account data
-        if let Err(e) = std::fs::remove_dir_all(&STATIC_ARGS.uplink_path) {
+        if let Err(e) = tokio::fs::remove_dir_all(&STATIC_ARGS.uplink_path).await {
             log::warn!("failed to delete uplink directory: {}", e);
         }
 
         // create directories
-        if let Err(e) = std::fs::create_dir_all(&STATIC_ARGS.warp_path) {
+        if let Err(e) = tokio::fs::create_dir_all(&STATIC_ARGS.warp_path).await {
             log::warn!("failed to create warp directory: {}", e);
         }
 
         // create the tesseract key file so it can be saved later
-        if let Err(e) = std::fs::File::create(&STATIC_ARGS.tesseract_path) {
+        if let Err(e) = tokio::fs::File::create(&STATIC_ARGS.tesseract_path).await {
             log::error!("failed to create tesseract file: {}", e);
             return Err(warp::error::Error::CannotSaveTesseract);
         }
@@ -289,7 +289,7 @@ async fn init_tesseract(overwrite_old_account: bool) -> Result<Tesseract, Error>
             log::warn!("creating new tesseract");
 
             // create the file so it can be saved later
-            if let Err(e) = std::fs::File::create(&STATIC_ARGS.tesseract_path) {
+            if let Err(e) = tokio::fs::File::create(&STATIC_ARGS.tesseract_path).await {
                 log::error!("failed to create tesseract file: {}", e);
                 return Err(warp::error::Error::CannotSaveTesseract);
             }
