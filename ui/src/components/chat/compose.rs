@@ -1,5 +1,5 @@
 use std::{
-    cell::Ref,
+    cell::{Ref, RefMut},
     path::PathBuf,
     rc::Rc,
     time::{Duration, Instant},
@@ -634,24 +634,50 @@ struct UseText<'a> {
 
 impl UseText<'_> {
     pub fn read(&self) -> Ref<'_, Vec<String>> {
+        // check if the shared state active chat has changed and update the local text if needed
+        let mut new_text = None;
+        if let Some(state) = self.state {
+            if let Some(draft) = state.read().get_active_chat() {
+                if let Some(text) = &draft.draft {
+                    let changed = {
+                        text.split('\n')
+                            .zip(self.local_text.read().iter())
+                            .all(|(a, b)| a == *b)
+                    };
+                    if changed {
+                        let text = text.split('\n').map(|x| x.to_string()).collect();
+                        new_text = Some(text);
+                    }
+                }
+            }
+        }
+        if let Some(text) = new_text {
+            self.with_mut(|value| *value = text);
+        }
         self.local_text.read()
     }
 
-    pub fn with_mut(&self, f: impl FnOnce(&mut Vec<String>)) {
-        f(&mut self.local_text.write());
+    fn with_mut_inner(
+        &self,
+        f: impl FnOnce(&mut Vec<String>),
+        local_text: &mut Vec<String>,
+        state: Option<RefMut<State>>,
+    ) {
+        f(local_text);
         if let Some(id) = &self.active_chat_id {
             self.typing_ch.send(TypingIndicator::Typing(*id));
-            // TODO: Maybe we should debounce this in the future so we don't do it on EVERY keypress.
-            if let Some(state) = self.state {
-                state
-                    .write()
-                    .mutate(Action::SetChatDraft(*id, self.local_text.read().join("\n")));
+            if let Some(mut state) = state {
+                // TODO: Maybe we should debounce this in the future so we don't do it on EVERY keypress.
+                // If we do the
+                state.mutate(Action::SetChatDraft(*id, local_text.join("\n")));
             }
         }
     }
 
-    pub fn set(&self, text: Vec<String>) {
-        self.with_mut(|v| *v = text);
+    pub fn with_mut(&self, f: impl FnOnce(&mut Vec<String>)) {
+        let mut local_state = self.local_text.write();
+        let state = self.state.as_ref().map(|x| x.write());
+        self.with_mut_inner(f, &mut local_state, state);
     }
 
     pub fn clear(&self) {
@@ -874,7 +900,9 @@ fn get_chatbar(cx: Scope<ComposeProps>) -> Element {
         loading: is_loading,
         placeholder: get_local_text("messages.say-something-placeholder"),
         onchange: move |v: String| {
-            input.set(v.lines().map(|x| x.to_string()).collect::<Vec<String>>());
+            input.with_mut(|input| {
+                *input = v.lines().map(|x| x.to_string()).collect::<Vec<String>>()
+            });
         },
         value: data
             .as_ref()

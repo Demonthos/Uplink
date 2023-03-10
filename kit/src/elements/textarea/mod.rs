@@ -165,9 +165,7 @@ fn render_input<'a>(
                     placeholder: "{placeholder}",
                     oninput: move |evt| {
                         let current_val = evt.value.clone();
-                        if !current_val.trim().is_empty() {
-                            onchange.call((current_val, true));
-                        }
+                        onchange.call((current_val, true));
                     },
                     onkeyup: move |evt| {
                         let is_valid = !current_val.trim().is_empty();
