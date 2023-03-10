@@ -151,6 +151,21 @@ pub enum Location {
     Settings,
 }
 
+#[derive(Clone)]
+pub struct ChatbarActionContext {
+    pub text: Vec<String>,
+}
+
+impl ChatbarActionContext {
+    pub fn draft(&self) -> String {
+        self.text.join("\n")
+    }
+
+    pub fn set_draft(&mut self, text: &str) {
+        self.text = text.split('\n').map(|s| s.to_string()).collect();
+    }
+}
+
 // Right now IconLaunched is the only supported render mode. This will evolve over time.
 #[repr(C)]
 pub enum Type {

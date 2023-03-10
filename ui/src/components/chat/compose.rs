@@ -1,5 +1,5 @@
 use std::{
-    cell::{Ref, RefMut},
+    cell::Ref,
     path::PathBuf,
     rc::Rc,
     time::{Duration, Instant},
@@ -7,6 +7,7 @@ use std::{
 
 use dioxus::prelude::*;
 
+use extensions::ChatbarActionContext;
 use futures::{channel::oneshot, StreamExt};
 
 use kit::{
@@ -611,73 +612,40 @@ enum TypingIndicator {
 }
 
 fn use_chat_text(cx: Scope<ComposeProps>) -> UseText {
-    let input = use_ref(cx, Vec::new);
+    use_shared_state_provider(cx, || ChatbarActionContext { text: Vec::new() });
+    let input = use_shared_state::<ChatbarActionContext>(cx).unwrap();
     let active_chat_id = cx.props.data.as_ref().map(|d| d.active_chat.id);
-    let state = use_shared_state::<State>(cx);
     let typing_ch = use_coroutine_handle::<TypingIndicator>(cx).unwrap();
 
     UseText {
         local_text: input,
         active_chat_id,
-        state,
         typing_ch,
     }
 }
 
 #[derive(Copy, Clone)]
 struct UseText<'a> {
-    local_text: &'a UseRef<Vec<String>>,
+    local_text: UseSharedState<'a, ChatbarActionContext>,
     active_chat_id: Option<Uuid>,
-    state: Option<UseSharedState<'a, State>>,
     typing_ch: &'a Coroutine<TypingIndicator>,
 }
 
 impl UseText<'_> {
     pub fn read(&self) -> Ref<'_, Vec<String>> {
-        // check if the shared state active chat has changed and update the local text if needed
-        let mut new_text = None;
-        if let Some(state) = self.state {
-            if let Some(draft) = state.read().get_active_chat() {
-                if let Some(text) = &draft.draft {
-                    let changed = {
-                        text.split('\n')
-                            .zip(self.local_text.read().iter())
-                            .all(|(a, b)| a == *b)
-                    };
-                    if changed {
-                        let text = text.split('\n').map(|x| x.to_string()).collect();
-                        new_text = Some(text);
-                    }
-                }
-            }
-        }
-        if let Some(text) = new_text {
-            self.with_mut(|value| *value = text);
-        }
-        self.local_text.read()
+        Ref::map(self.local_text.read(), |x| &x.text)
     }
 
-    fn with_mut_inner(
-        &self,
-        f: impl FnOnce(&mut Vec<String>),
-        local_text: &mut Vec<String>,
-        state: Option<RefMut<State>>,
-    ) {
+    fn with_mut_inner(&self, f: impl FnOnce(&mut Vec<String>), local_text: &mut Vec<String>) {
         f(local_text);
         if let Some(id) = &self.active_chat_id {
             self.typing_ch.send(TypingIndicator::Typing(*id));
-            if let Some(mut state) = state {
-                // TODO: Maybe we should debounce this in the future so we don't do it on EVERY keypress.
-                // If we do the
-                state.mutate(Action::SetChatDraft(*id, local_text.join("\n")));
-            }
         }
     }
 
     pub fn with_mut(&self, f: impl FnOnce(&mut Vec<String>)) {
         let mut local_state = self.local_text.write();
-        let state = self.state.as_ref().map(|x| x.write());
-        self.with_mut_inner(f, &mut local_state, state);
+        self.with_mut_inner(f, &mut local_state.text);
     }
 
     pub fn clear(&self) {
@@ -904,10 +872,7 @@ fn get_chatbar(cx: Scope<ComposeProps>) -> Element {
                 *input = v.lines().map(|x| x.to_string()).collect::<Vec<String>>()
             });
         },
-        value: data
-            .as_ref()
-            .and_then(|d| d.active_chat.draft.clone())
-            .unwrap_or_default(),
+        value: input.read().join(" ")
         onreturn: move |_| submit_fn(),
         controls: cx.render(rsx!(
             // Load extensions

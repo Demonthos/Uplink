@@ -105,7 +105,7 @@ pub static STATIC_ARGS: Lazy<StaticArgs> = Lazy::new(|| {
         typing_indicator_timeout: 6,
         tesseract_path: warp_path.join("tesseract.json"),
         login_config_path: uplink_path.join("login_config.json"),
-        use_mock: args.with_mock,
+        use_mock: true,
     }
 });
 

@@ -34,8 +34,6 @@ pub struct Chat {
     // (user id, last update time)
     #[serde(skip)]
     pub typing_indicator: HashMap<DID, Instant>,
-    #[serde(skip)]
-    pub draft: Option<String>,
 }
 
 // warning: Chats implements Serialize

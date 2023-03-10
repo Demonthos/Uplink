@@ -212,8 +212,6 @@ impl State {
                     self.clear_unreads(id);
                 }
             }
-            Action::SetChatDraft(chat_id, value) => self.set_chat_draft(&chat_id, value),
-            Action::ClearChatDraft(chat_id) => self.clear_chat_draft(&chat_id),
             Action::AddReaction(_, _, _) => todo!(),
             Action::RemoveReaction(_, _, _) => todo!(),
             Action::Reply(_, _) => todo!(),
@@ -698,13 +696,6 @@ impl State {
         needs_update
     }
 
-    /// Clears the given chats draft message
-    fn clear_chat_draft(&mut self, chat_id: &Uuid) {
-        if let Some(mut c) = self.chats.all.get_mut(chat_id) {
-            c.draft = None;
-        }
-    }
-
     /// Clear unreads  within a given chat on `State` struct.
     ///
     /// # Arguments
@@ -838,12 +829,6 @@ impl State {
         self.chats.active = Some(chat.id);
         if !self.chats.in_sidebar.contains(&chat.id) {
             self.chats.in_sidebar.push(chat.id);
-        }
-    }
-    /// Sets the draft on a given chat to some contents.
-    fn set_chat_draft(&mut self, chat_id: &Uuid, value: String) {
-        if let Some(mut c) = self.chats.all.get_mut(chat_id) {
-            c.draft = Some(value);
         }
     }
     /// Begins replying to a message in the specified chat in the `State` struct.

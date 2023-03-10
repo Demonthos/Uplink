@@ -1,11 +1,10 @@
-use common::{
-    icons::outline::Shape as Icon,
-    state::{Action, State},
-};
+use common::icons::outline::Shape as Icon;
 use dioxus::prelude::*;
 use dioxus_desktop::use_eval;
 use emojis::Group;
-use extensions::{export_extension, Details, Extension, Location, Meta, Type};
+use extensions::{
+    export_extension, ChatbarActionContext, Details, Extension, Location, Meta, Type,
+};
 use kit::{
     components::nav::{Nav, Route},
     elements::{button::Button, label::Label},
@@ -102,7 +101,7 @@ impl EmojiSelector {
 
     fn render_selector<'a>(&self, cx: &'a ScopeState) -> Element<'a> {
         //println!("render emoji selector");
-        let state = use_shared_state::<State>(cx)?;
+        let chatbar = use_shared_state::<ChatbarActionContext>(cx)?;
 
         let scroll_script = r#"
             function scrolltoId(id){
@@ -135,14 +134,11 @@ impl EmojiSelector {
                                         div {
                                             class: "emoji",
                                             onclick: move |_| {
+                                                let mut chatbar = chatbar.write();
                                                 // If we're on an active chat, append the emoji to the end of the chat message.
-                                                let c =  match state.read().get_active_chat() {
-                                                    Some(c) => c,
-                                                    None => return
-                                                };
-                                                let draft: String = c.draft.unwrap_or_default();
+                                                let draft: String = chatbar.draft();
                                                 let new_draft = format!("{draft}{emoji}");
-                                                state.write().mutate(Action::SetChatDraft(c.id, new_draft));
+                                                chatbar.set_draft(&new_draft);
                                             },
                                             emoji.as_str()
                                         }
