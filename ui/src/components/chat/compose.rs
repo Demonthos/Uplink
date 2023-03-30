@@ -927,6 +927,8 @@ fn get_chatbar<'a>(cx: &'a Scoped<'a, ComposeProps>) -> Element<'a> {
     let data = &cx.props.data;
     let is_loading = data.is_none();
     let input = use_ref(cx, Vec::<String>::new);
+    // If there is currently not an active chat, we keep a fallback chat id that will not change every rerender
+    let fallback_chat_id = cx.use_hook(Uuid::new_v4);
     let active_chat_id = data.as_ref().map(|d| d.active_chat.id);
 
     let files_to_upload: &UseState<Vec<PathBuf>> = cx.props.upload_files.as_ref().unwrap();
@@ -1125,7 +1127,7 @@ fn get_chatbar<'a>(cx: &'a Scoped<'a, ComposeProps>) -> Element<'a> {
     };
     let id = match active_chat_id {
         Some(i) => i,
-        None => uuid::Uuid::new_v4(),
+        None => *fallback_chat_id,
     };
     // todo: filter out extensions not meant for this area
     let extensions = &state.read().ui.extensions;
